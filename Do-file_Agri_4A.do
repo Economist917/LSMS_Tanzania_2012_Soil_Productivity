@@ -474,6 +474,7 @@ tabulate clim03
 *il va falloir merge à nouveau la prochaine fois*
 * si okay de se limiter à ce qu'on a fait, sinon on peut demander de l'aide à l'IA et forums pour de nouvelles commandes*
 
+#yasminaamelesolseaquevedo
 
 
 
