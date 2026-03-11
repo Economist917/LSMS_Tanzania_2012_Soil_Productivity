@@ -168,90 +168,95 @@ tab erosion_yes residue_left, row
 *          FINAL PLOT-LEVEL DATABASE
 ************************************************************
 * Purpose:
-* At this stage, we already created a merged agricultural file
-* (`final_agri_analysis.dta`) combining section 3 and section 5.
-* We now merge it with `base_finale.dta`, which contains useful
-* plot-level variables such as intercropping and yields.
-* This allows us to test the relationship between agroecological
-* practices and soil degradation outcomes on the same plots.
+* We merge the dataset constructed from Sections 3 and 5
+* (`final_agri_analysis.dta`) with the dataset `base_finale.dta`,
+* which contains additional plot-level characteristics such as
+* intercropping practices and agricultural yields.
 
 use base_finale.dta, clear
 
-* Harmonize identifier names so they match the agricultural file
-* `menage` corresponds to household ID and `parcelle` to plot number.
+* Harmonize variable names so identifiers match across datasets
 rename menage y3_hhid
 rename parcelle plotnum
 
-* Save a cleaned version with standardized IDs
+* Save cleaned version
 save base_finale_clean.dta, replace
 
-* Load the file created previously from sections 3 and 5
+* Load dataset constructed previously from Sections 3 and 5
 use final_agri_analysis.dta, clear
 
-* Merge plot-level information from base_finale_clean
-* m:1 is used because the current file may contain several crop-level
-* observations per plot, while base_finale_clean is plot-level.
+* Merge datasets using household ID and plot number
 merge m:1 y3_hhid plotnum using base_finale_clean.dta
 
-* Check how many observations matched successfully
+* Check merge result
 tab _merge
 
-* Keep only observations present in both datasets
-* This ensures that the final file includes all variables needed
-* for the analysis of practices and outcomes.
+* Keep only matched observations
 keep if _merge==3
 drop _merge
 
-* Save the enriched final dataset
+* Save final merged dataset used for analysis
 save final_agri_with_base.dta, replace
 
 
 ************************************************************
-* STEP 11. CHECK UNIQUENESS OF IDENTIFIERS
+* STEP 11. CHECK UNIQUENESS OF PLOT IDENTIFIERS
 ************************************************************
-* Purpose:
-* This diagnostic step checks whether a household-plot combination
-* appears more than once. It is useful for understanding the structure
-* of the merged file and documenting the data preparation process.
-use final_agri_with_base.dta, clear
+* This diagnostic step verifies whether each household–plot
+* combination appears only once in the dataset.
+
 duplicates report y3_hhid plotnum
 
 
 ************************************************************
-* STEP 12. GRAPHICAL ANALYSIS OF INTERCROPPING AND EROSION
+* STEP 12. GRAPHICAL ANALYSIS: CROP RESIDUE MANAGEMENT
+*          AND SOIL EROSION
+************************************************************
+
+* Recreate binary erosion variable
+gen erosion_yes = .
+replace erosion_yes = 1 if erosion==1
+replace erosion_yes = 0 if erosion==2
+
+graph pie, over(intercropped) ///
+title("Répartition des parcelles selon la pratique de cultures intercalaires")
+
+graph pie, over(erosion_yes) ///
+title("Part des parcelles affectées par l'érosion")
+
+graph bar (mean) erosion_yes, over(residue_left) ///
+blabel(bar, format(%4.2f)) ///
+title("Proportion de parcelles avec érosion selon la gestion des résidus") ///
+ytitle("Proportion avec érosion")
+
+graph bar (mean) erosion_yes, over(residue_left) ///
+blabel(bar, format(%4.2f)) ///
+title("Proportion de parcelles avec érosion selon la gestion des résidus")
+
+************************************************************
+* STEP 13. GRAPHICAL ANALYSIS: INTERCROPPING AND EROSION
 ************************************************************
 * Purpose:
-* Our sub-hypothesis is that agroecological practices such as
-* intercropping may help protect soils from erosion.
-* We therefore compare the proportion of plots affected by erosion
-* between plots with and without intercropping.
+* Another agroecological practice potentially limiting erosion
+* is intercropping (polyculture). We therefore compare erosion
+* rates between plots with and without intercropping.
 
-* First, verify how the intercropping variable is coded
+* Check coding of the intercropping variable
 tab intercropped
 
-* In the base_finale file, intercropped is coded as:
-* 1 = yes
-* 2 = no
-* To make interpretation easier, we recode it into a binary variable:
-* 1 = intercropped
-* 0 = not intercropped
+* Recode into a binary variable for easier interpretation
 gen intercropped_yes = .
 replace intercropped_yes = 1 if intercropped==1
 replace intercropped_yes = 0 if intercropped==2
 
-* Add readable labels for the graph and tables
+* Add readable labels
 label define intercroplab 0 "Pas de cultures intercalaires" 1 "Cultures intercalaires"
 label values intercropped_yes intercroplab
 
-* Draw the bar graph:
-* Each bar represents the mean of erosion_yes, which is interpreted
-* here as the proportion of plots with erosion in each group.
+* Bar graph showing proportion of erosion by intercropping status
 graph bar (mean) erosion_yes, over(intercropped_yes) ///
 title("Érosion selon la pratique de cultures intercalaires") ///
 ytitle("Proportion de parcelles avec érosion")
 
-* Cross-tabulation to accompany the graph
-* This table shows the distribution of erosion by intercropping status
-* and is useful for reporting the percentages in the text.
+* Cross-tabulation accompanying the graph
 tab erosion_yes intercropped_yes, row
-
