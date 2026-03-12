@@ -464,19 +464,137 @@ merge m:1 menage using "$chemin/Information_geographique.dta"
 *Si c'était un plus grand nombre, il faudrait l'expliquer ou le prendre en compte dans l'analyse. 
 
 keep if _m==3
+*on garde que les ménages agricoles et dont on connait les informations géographiques*
 drop _m 
-
-summarize
-tabulate land03
-tabulate clim02
-tabulate clim03 
+*toujours drop _m après un merge*
 
 *il va falloir merge à nouveau la prochaine fois*
 * si okay de se limiter à ce qu'on a fait, sinon on peut demander de l'aide à l'IA et forums pour de nouvelles commandes*
 
-#yasminaamelesolseaquevedo
+*** Maintenant je veux fusionner les bases 3a et 3b, et les bases 5a et 5b, ensuite je veux fusionner ces deux nouvelles bases à la base finale géographique ***
 
+save "$chemin_output/base_finale_geo", replace
+*d'abord j'ai sauvegardé la base finale fusionnée avec la base des informations géographiques, avec la variable commune ménage* 
 
-Bonjour les filles <3 
+use "$chemin/AG_SEC_3A.dta", clear
+rename y3_hhid menage
+duplicates report menage
+duplicates report menage plotnum
 
+use "$chemin/AG_SEC_3B.dta", clear
+rename y3_hhid menage
+duplicates report menage plotnum 
+rename plotnum parcelle
+rename ag3b_12 quality_source
+rename ag3b_14 erosion_cause
+rename ag3b_15 erosion_control
+rename ag3b_16_1 erosion_control_type1
+rename ag3b_16_2 erosion_control_type2
+rename ag3b_19 irrigation_type
+rename ag3b_20 method_water
+rename ag3b_21 source_water
 
+generate long_rainy_season =0
+keep menage parcelle quality_source erosion_cause erosion_control erosion_control_type1 erosion_control_type2 irrigation_type method_water source_water long_rainy_season
+
+count if parcelle != ""
+codebook parcelle
+codebook menage
+
+tempfile base3b 
+save `base3b'
+
+use "$chemin/AG_SEC_3A.dta", clear
+rename plotnum parcelle
+rename ag3a_12 quality_source
+rename ag3a_14 erosion_cause
+rename ag3a_15 erosion_control
+rename ag3a_16_1 erosion_control_type1
+rename ag3a_16_2 erosion_control_type2
+rename ag3a_19 irrigation_type
+rename ag3a_20 method_water
+rename ag3a_21 source_water
+
+generate long_rainy_season =1
+keep menage parcelle quality_source erosion_cause erosion_control erosion_control_type1 erosion_control_type2 irrigation_type method_water source_water long_rainy_season
+
+append using "$chemin/AG_SEC_3B.dta"
+codebook menage
+codebook parcelle
+codebook menage if parcelle!= ""
+count
+tabulate long_rainy_season
+save "$chemin_output/information_sols_3AB", replace
+duplicates report parcelle
+keep if parcelle!= ""
+*pour effacer les observations/ménages sans parcelle = non agricoles* 
+duplicates drop menage, force
+
+use "$chemin_output/information_sols_3AB", clear
+
+***Maintenant on fait la même chose avec les bases 5A et 5B***
+
+use "$chemin/AG_SEC_5A.dta", clear
+rename y3_hhid menage
+duplicates report menage
+duplicates report menage occ
+duplicates drop menage occ, force
+codebook menage
+codebook zaocode
+codebook zaoname
+keep if zaoname!= ""
+
+rename ag5a_33_1 residue_use_1
+rename ag5a_33_2 residue_use_2
+tabulate residue_use_1
+
+generate long_rainy_season =1
+keep occ menage zaocode zaoname residue_use_1 residue_use_2 long_rainy_season
+
+use "$chemin/AG_SEC_5B.dta", clear
+rename y3_hhid menage
+duplicates report menage occ
+rename ag5b_33_1 residue_use_1
+rename ag5b_33_2 residue_use_2
+tabulate residue_use_1
+tabulate residue_use_2
+keep if zaoname!= ""
+generate long_rainy_season =0
+keep occ menage zaocode zaoname residue_use_1 residue_use_2 long_rainy_season
+
+use "$chemin/AG_SEC_5A.dta", clear
+append using "$chemin/AG_SEC_5B.dta"
+tabulate long_rainy_season
+save "$chemin_output/information_residus_5AB", replace
+
+*** Momento de fusionaaaar *** 
+
+use "$chemin_output/information_sols_3AB", clear
+
+use "$chemin_output/information_residus_5AB", clear
+
+merge m:m menage using "$chemin_output/information_residus_5AB"
+keep if _m==3 
+*on garde que les parcelles avec cultures et dont on connait les informations qui nous intéressent*
+drop _m 
+*toujours drop _m après un merge*
+
+save "$chemin_output/informations_sols_residus", replace
+
+use "$chemin_output/base_finale_geo", clear
+
+merge m:m menage parcelle using "$chemin_output/informations_sols_residus2"
+
+duplicates report menage parcelle occ long_rainy_season zaocode
+
+use "$chemin_output/informations_sols_residus", clear
+
+codebook menage parcelle occ 
+codebook menage
+
+duplicates drop menage parcelle occ long_rainy_season zaocode, force
+duplicates report menage parcelle occ long_rainy_season zaocode
+
+save "$chemin_output/informations_sols_residus2", replace
+keep if _m==3 
+save "$chemin_output/base_finale_complete", replace
