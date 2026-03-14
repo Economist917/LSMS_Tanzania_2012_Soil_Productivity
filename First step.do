@@ -391,3 +391,83 @@ drop _merge
 
 save final_complete_analysis.dta, replace
 
+************************************************************
+* fertilisation
+************************************************************
+
+use final_agri_with_base.dta, clear
+
+* Vérifier le codage
+tab inorganic_fert
+tab erosion_prob
+tab erosion
+
+gen erosion_yes = .
+replace erosion_yes = 1 if erosion_prob==1
+replace erosion_yes = 0 if erosion_prob==2
+
+* avec erosion :
+replace erosion_yes = 1 if missing(erosion_yes) & erosion==1
+replace erosion_yes = 0 if missing(erosion_yes) & erosion==2
+
+* fertilisation inorganique
+gen fert_use = .
+replace fert_use = 1 if inorganic_fert==1
+replace fert_use = 0 if inorganic_fert==2
+
+* labels
+label define erolab 0 "Pas d'érosion" 1 "Érosion", replace
+label values erosion_yes erolab
+
+label define fertlab 0 "Pas d'engrais inorganique" 1 "Utilise engrais inorganique", replace
+label values fert_use fertlab
+
+* verification
+tab fert_use
+tab erosion_yes
+tab fert_use erosion_yes, row
+
+graph bar (mean) fert_use, over(erosion_yes) ///
+title("Utilisation d'engrais inorganique selon l'érosion") ///
+ytitle("Proportion de parcelles utilisant un engrais") ///
+blabel(bar, format(%4.2f))
+
+tab fert_use erosion_yes, row chi2
+
+graph box fert_qty, over(erosion_yes) ///
+title("Quantité d'engrais selon la présence d'érosion") ///
+ytitle("Quantité d'engrais")
+
+table erosion_yes, statistic(mean fert_qty) statistic(n fert_qty)
+
+reg fert_qty i.erosion_yes
+reg fert_use i.erosion_yes
+
+graph bar (mean) fert_use, over(erosion_yes, label(angle(0))) ///
+title("Usage d'engrais inorganique selon l'état d'érosion") ///
+ytitle("Proportion") ///
+ylabel(0(.2)1, format(%3.1f)) ///
+blabel(bar, format(%4.2f)) ///
+legend(off)
+
+graph box fert_qty, over(erosion_yes, label(angle(0))) ///
+title("Quantité d'engrais utilisée selon l'érosion") ///
+ytitle("Quantité d'engrais") ///
+ylabel(, format(%9.0fc))
+
+
+tab org_fertilizer
+
+gen org_fert_use = .
+replace org_fert_use = 1 if org_fertilizer==1
+replace org_fert_use = 0 if org_fertilizer==2
+
+label define orglab 0 "Pas d'engrais organique" 1 "Utilise engrais organique", replace
+label values org_fert_use orglab
+
+graph bar (mean) org_fert_use, over(erosion_yes) ///
+title("Utilisation d'engrais organique selon l'érosion") ///
+ytitle("Proportion") ///
+blabel(bar, format(%4.2f))
+
+tab org_fert_use erosion_yes, row chi2
